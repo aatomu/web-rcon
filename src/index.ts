@@ -12,11 +12,18 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url)
 		const params = new URLSearchParams(url.searchParams)
+
 		const ip = params.get('ip')
 		const port = params.get('port')
+		const tunnel = params.get('tunnel')
 		const pass = params.get('pass')
+		if (!pass) return new Response('Not Enough Argument: "pass"', { status: 400 })
+
 		const cmd = params.get('cmd')
-		if (ip && port && pass && cmd) {
+		if (!cmd) return new Response('Not Enough Argument: "cmd"', { status: 400 })
+
+		// Access by IP&Port
+		if (ip && port) {
 			try {
 				const addr = { hostname: ip, port: Number(port) }
 				const socket = connect(addr)
@@ -53,7 +60,50 @@ export default {
 			}
 		}
 
-		return new Response(null, { status: 400 })
+		// Access by Cloudflare Tunnel
+		if (tunnel) {
+			const result = await new Promise<Packet>((resolve, reject) => {
+				const rejectID = setTimeout(() => {
+					reject('Timed Out')
+				}, 5000)
+
+				const ws = new WebSocket(`wss://${tunnel}`)
+				let uniqueID = 1
+				console.log('WS create')
+				ws.addEventListener('open', () => {
+					console.log('WS open')
+					// Login
+					ws.send(makePacket(SendType.ServerAuth, pass, uniqueID))
+					uniqueID++
+				})
+
+				ws.addEventListener('message', async (e) => {
+					const res = e.data as ArrayBuffer
+					const result = parsePacket(new Uint8Array(res))
+					console.log(result)
+					if (result.type == SendType.AuthSuccess && result.id==1) {
+						// Execute
+						console.log('auth Success')
+						ws.send(makePacket(SendType.ExecuteCommand, cmd, uniqueID))
+						uniqueID++
+						return
+					}
+					if (result.type == SendType.Response && result.id==2) {
+						console.log('exec Success')
+						clearTimeout(rejectID)
+						ws.close()
+						resolve(result)
+						return
+					}
+				})
+			})
+			return new Response(JSON.stringify(result), {
+				headers: {
+					'Content-Type': 'application/json',
+				},
+			})
+		}
+		return new Response('Not Enough Argument: ("ip" and "port") or "tunnel"', { status: 400 })
 	},
 } satisfies ExportedHandler<Env>
 
