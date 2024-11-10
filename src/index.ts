@@ -17,10 +17,22 @@ export default {
 		const port = params.get('port')
 		const tunnel = params.get('tunnel')
 		const pass = params.get('pass')
-		if (!pass) return new Response('Not Enough Argument: "pass"', { status: 400 })
+		if (!pass)
+			return new Response('Not Enough Argument: "pass"', {
+				status: 400,
+				headers: {
+					'Access-Control-Allow-Origin': '*',
+				},
+			})
 
 		const cmd = params.get('cmd')
-		if (!cmd) return new Response('Not Enough Argument: "cmd"', { status: 400 })
+		if (!cmd)
+			return new Response('Not Enough Argument: "cmd"', {
+				status: 400,
+				headers: {
+					'Access-Control-Allow-Origin': '*',
+				},
+			})
 
 		// Access by IP&Port
 		if (ip && port) {
@@ -36,7 +48,12 @@ export default {
 				uniqueID++
 				let res = await reader.read()
 				if (!res.value) {
-					return new Response(null, { status: 500 })
+					return new Response(null, {
+						status: 500,
+						headers: {
+							'Access-Control-Allow-Origin': '*',
+						},
+					})
 				}
 				const login = new Uint8Array(res.value)
 				console.log(login, parsePacket(login))
@@ -45,7 +62,12 @@ export default {
 				uniqueID++
 				res = await reader.read()
 				if (!res.value) {
-					return new Response(null, { status: 500 })
+					return new Response(null, {
+						status: 500,
+						headers: {
+							'Access-Control-Allow-Origin': '*',
+						},
+					})
 				}
 				const execute = new Uint8Array(res.value)
 				const response = parsePacket(execute)
@@ -53,10 +75,16 @@ export default {
 				return new Response(JSON.stringify(response), {
 					headers: {
 						'Content-Type': 'application/json',
+						'Access-Control-Allow-Origin': '*',
 					},
 				})
 			} catch (e) {
-				return new Response(`Error:${e}`, { status: 500 })
+				return new Response(`Error:${e}`, {
+					status: 500,
+					headers: {
+						'Access-Control-Allow-Origin': '*',
+					},
+				})
 			}
 		}
 
@@ -81,14 +109,14 @@ export default {
 					const res = e.data as ArrayBuffer
 					const result = parsePacket(new Uint8Array(res))
 					console.log(result)
-					if (result.type == SendType.AuthSuccess && result.id==1) {
+					if (result.type == SendType.AuthSuccess && result.id == 1) {
 						// Execute
 						console.log('auth Success')
 						ws.send(makePacket(SendType.ExecuteCommand, cmd, uniqueID))
 						uniqueID++
 						return
 					}
-					if (result.type == SendType.Response && result.id==2) {
+					if (result.type == SendType.Response && result.id == 2) {
 						console.log('exec Success')
 						clearTimeout(rejectID)
 						ws.close()
@@ -100,10 +128,16 @@ export default {
 			return new Response(JSON.stringify(result), {
 				headers: {
 					'Content-Type': 'application/json',
+					'Access-Control-Allow-Origin': '*',
 				},
 			})
 		}
-		return new Response('Not Enough Argument: ("ip" and "port") or "tunnel"', { status: 400 })
+		return new Response('Not Enough Argument: ("ip" and "port") or "tunnel"', {
+			status: 400,
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+			},
+		})
 	},
 } satisfies ExportedHandler<Env>
 
